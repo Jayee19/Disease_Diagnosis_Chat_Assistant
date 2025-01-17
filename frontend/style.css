@@ -1,0 +1,216 @@
+/* frontend/styles.css */
+
+/* Reset some default styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body, html {
+    height: 100%;
+    width: 100%;
+    font-family: 'Roboto', sans-serif;
+    background-color: #e0e0e0;
+}
+
+/* Chat Wrapper to center the chat container */
+.chat-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+/* Chat Container */
+.chat-container {
+    width: 400px;
+    max-width: 90%;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    height: 600px; /* Fixed height for demonstration */
+    overflow: hidden;
+}
+
+/* Chat Header */
+.chat-header {
+    background-color: #4CAF50;
+    padding: 20px;
+    text-align: center;
+}
+
+.chat-header h2 {
+    color: #ffffff;
+    font-weight: 500;
+}
+
+/* Chat Box */
+.chat-box {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+}
+
+/* Messages */
+.message {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: flex-end;
+}
+
+/* User Messages */
+.user-message {
+    justify-content: flex-end;
+}
+
+.user-message .message-content {
+    background-color: #dcf8c6;
+    color: #000000;
+    border-radius: 15px 15px 0 15px;
+    padding: 10px 15px;
+    max-width: 80%;
+    word-wrap: break-word;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    position: relative;
+    margin-left: 50px; /* Space for avatar */
+}
+
+/* Bot Messages */
+.bot-message {
+    justify-content: flex-start;
+}
+
+.bot-message .message-content {
+    background-color: #ffffff;
+    color: #000000;
+    border-radius: 15px 15px 15px 0;
+    padding: 10px 15px;
+    max-width: 80%;
+    word-wrap: break-word;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    position: relative;
+    margin-right: 50px; /* Space for avatar */
+}
+
+/* Avatar Styling */
+.avatar {
+    width: 30px;
+    height: 30px;
+    background-color: #dddddd;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    position: absolute;
+}
+
+.user-message .avatar {
+    right: -40px;
+}
+
+.bot-message .avatar {
+    left: -40px;
+}
+
+/* Timestamp Styling */
+.timestamp {
+    display: block;
+    font-size: 12px;
+    color: #999999;
+    margin-top: 5px;
+    text-align: right;
+}
+
+/* Input Container */
+.input-container {
+    display: flex;
+    padding: 15px;
+    border-top: 1px solid #dddddd;
+    background-color: #ffffff;
+    justify-content: center; /* Center the input and button */
+    align-items: center;
+}
+
+/* Input Field */
+#symptoms-input {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #cccccc;
+    border-radius: 20px;
+    outline: none;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+#symptoms-input:focus {
+    border-color: #4CAF50;
+}
+
+/* Send Button */
+#send-button {
+    margin-left: 10px;
+    padding: 10px 15px;
+    background-color: #4CAF50;
+    color: #ffffff;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#send-button:hover {
+    background-color: #45a049;
+}
+
+/* Scrollbar Styling */
+.chat-box::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-box::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.chat-box::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.chat-box::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 500px) {
+    .chat-container {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+    }
+
+    .chat-box {
+        padding: 15px;
+    }
+
+    .input-container {
+        padding: 10px;
+    }
+
+    /* Adjust avatar positions on smaller screens */
+    .user-message .avatar, .bot-message .avatar {
+        display: none; /* Hide avatars on small screens for better spacing */
+    }
+
+    .user-message .message-content, .bot-message .message-content {
+        margin: 0;
+    }
+}
