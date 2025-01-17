@@ -1,125 +1,116 @@
-// frontend/script.js
+document.addEventListener('DOMContentLoaded', function() {
+    const messagesContainer = document.getElementById('messagesContainer');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
 
-document.getElementById('send-button').addEventListener('click', sendSymptoms);
-document.getElementById('symptoms-input').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        sendSymptoms();
+    // Add welcome message
+    addBotMessage("Hello! I'm your Disease Diagnosis Assistant. Please describe your symptoms, and I'll help identify possible conditions.");
+
+    async function handleSendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        // Add user message
+        addUserMessage(message);
+        userInput.value = '';
+        
+        // Show typing indicator
+        showTypingIndicator();
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ symptoms: message })
+            });
+
+            if (!response.ok) throw new Error('Failed to get prediction');
+            
+            const data = await response.json();
+            removeTypingIndicator();
+            
+            // Add prediction message
+            addBotMessage(`Based on your symptoms, you might have: ${data.predicted_disease}`);
+
+            // Get detailed explanation
+            try {
+                const explanationResponse = await fetch('http://127.0.0.1:8000/explain', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ disease_name: data.predicted_disease })
+                });
+
+                if (explanationResponse.ok) {
+                    const explanationData = await explanationResponse.json();
+                    addBotMessage(explanationData.explanation);
+                }
+            } catch (error) {
+                console.error('Failed to get explanation:', error);
+            }
+
+        } catch (error) {
+            removeTypingIndicator();
+            addErrorMessage('Sorry, I had trouble processing your symptoms. Please try again with more specific symptoms.');
+        }
     }
+
+    function addUserMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user-message';
+        messageDiv.textContent = text;
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom();
+    }
+
+    function addBotMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot-message';
+        messageDiv.textContent = text;
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom();
+    }
+
+    function addErrorMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message error-message';
+        messageDiv.textContent = text;
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom();
+    }
+
+    function showTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'typing-indicator';
+        typingDiv.id = 'typingIndicator';
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'typing-dot';
+            typingDiv.appendChild(dot);
+        }
+        messagesContainer.appendChild(typingDiv);
+        scrollToBottom();
+    }
+
+    function removeTypingIndicator() {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Event listeners
+    sendButton.addEventListener('click', handleSendMessage);
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            handleSendMessage();
+        }
+    });
 });
-
-function appendMessage(sender, message) {
-    const chatBox = document.getElementById('chat-box');
-    const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message');
-    messageDiv.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
-
-    const avatar = document.createElement('div');
-    avatar.classList.add('avatar');
-    avatar.innerHTML = sender === 'user' ? '👤' : '🤖'; // Using emojis as simple avatars
-
-    const messageContent = document.createElement('div');
-    messageContent.classList.add('message-content');
-    messageContent.innerHTML = message;
-
-    // Timestamp
-    const timestamp = document.createElement('span');
-    timestamp.classList.add('timestamp');
-    const now = new Date();
-    timestamp.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    messageContent.appendChild(timestamp);
-
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(messageContent);
-    chatBox.appendChild(messageDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-async function sendSymptoms() {
-    const input = document.getElementById('symptoms-input');
-    const symptoms = input.value.trim();
-
-    if (symptoms === '') {
-        alert('Please enter at least one symptom.');
-        return;
-    }
-
-    appendMessage('user', symptoms);
-    input.value = '';
-
-    try {
-        // Display a typing indicator
-        appendMessage('bot', '🤖 Typing...');
-
-        // Call /predict endpoint
-        const predictResponse = await fetch('http://127.0.0.1:8000/predict', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ symptoms: symptoms.split(',').map(s => s.trim()) })
-        });
-
-        // Remove the typing indicator
-        removeLastBotMessage();
-
-        if (!predictResponse.ok) {
-            const errorData = await predictResponse.json();
-            appendMessage('bot', `❌ Error predicting disease: ${errorData.detail}`);
-            return;
-        }
-
-        const predictData = await predictResponse.json();
-        const disease = predictData.disease;
-        const confidence = predictData.confidence;
-
-        appendMessage('bot', `✅ Predicted Disease: ${disease} (Confidence: ${(confidence * 100).toFixed(1)}%)`);
-
-        // Display another typing indicator for explanation
-        appendMessage('bot', '🤖 Fetching detailed explanation...');
-
-        // Call /explain endpoint
-        const explainResponse = await fetch('http://127.0.0.1:8000/explain', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ disease: disease })
-        });
-
-        // Remove the typing explanation message
-        removeLastBotMessage();
-
-        if (!explainResponse.ok) {
-            const errorData = await explainResponse.json();
-            appendMessage('bot', `❌ Error explaining disease: ${errorData.detail}`);
-            return;
-        }
-
-        const explainData = await explainResponse.json();
-        const explanation = explainData.explanation;
-
-        // Format the explanation with bullet points for better readability
-        const formattedExplanation = explanation
-            .replace(/■/g, '•') // Replace ■ with • for standard bullets
-            .replace(/\n/g, '<br>'); // Replace newlines with line breaks
-
-        appendMessage('bot', `📄 <strong>Disease Explanation:</strong><br>${formattedExplanation}`);
-    } catch (error) {
-        // Remove the typing messages in case of errors
-        removeLastBotMessage();
-        removeLastBotMessage();
-        appendMessage('bot', `❗ An unexpected error occurred: ${error.message}`);
-    }
-}
-
-function removeLastBotMessage() {
-    const chatBox = document.getElementById('chat-box');
-    const messages = chatBox.getElementsByClassName('message');
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.classList.contains('bot-message')) {
-            chatBox.removeChild(lastMessage);
-        }
-    }
-}

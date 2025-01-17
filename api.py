@@ -1,5 +1,3 @@
-# api.py
-
 import pandas as pd
 import joblib
 import numpy as np
@@ -12,98 +10,62 @@ import google.generativeai as genai
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 
-# After initializing the FastAPI app
-app = FastAPI(title="Disease Prediction API", version="1.0")
+# Initialize FastAPI app
+app = FastAPI(
+    title="Disease Diagnosis Chat Assistant",
+    description="An AI-powered disease diagnosis system that predicts diseases from symptoms",
+    version="1.0"
+)
 
 # Configure CORS
 origins = [
     "http://localhost",
     "http://localhost:8000",
-    "http://127.0.0.1:5500",  # Example for VSCode Live Server
-    "http://localhost:3000",    # Example for React dev server
-    # Add other origins as needed
+    "http://127.0.0.1:5500",
+    "http://localhost:3000",
+    "*"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows specific origins
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# Define Pydantic models for request and response
-
+# Define Pydantic models
 class PredictRequest(BaseModel):
-    symptoms: List[str]
-
-class PredictResponse(BaseModel):
-    disease: str
-    confidence: float
+    symptoms: str
 
 class ExplainRequest(BaseModel):
-    disease: str
+    disease_name: str
 
-class ExplainResponse(BaseModel):
-    explanation: str
-
+# Helper functions
 def configure_generativeai():
-    """
-    Configures the Google Generative AI API key from environment variables.
-    """
     api_key = os.getenv("GOOGLE_GENERATIVEAI_API_KEY")
     if not api_key:
         raise ValueError("Google Generative AI API key not found. Please set the GOOGLE_GENERATIVEAI_API_KEY environment variable.")
     genai.configure(api_key=api_key)
 
 def load_model(filepath):
-    """
-    Loads a trained model from a file.
-
-    Parameters:
-    - filepath (str): Path to the saved model file.
-
-    Returns:
-    - model (Pipeline): Loaded machine learning pipeline.
-    """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Model file not found at path: {filepath}")
     model = joblib.load(filepath)
     print(f"Model loaded from {filepath}.")
     return model
 
-def predict_disease(model, input_symptoms):
-    """
-    Predicts the disease based on input symptoms using the trained model.
-
-    Parameters:
-    - model (Pipeline): Trained machine learning pipeline.
-    - input_symptoms (list of str): List of symptoms provided as input.
-
-    Returns:
-    - prediction (str): Predicted disease.
-    - confidence (float): Confidence score of the prediction.
-    """
-    if not isinstance(input_symptoms, list):
-        raise ValueError("Input symptoms should be provided as a list of strings.")
+def predict_disease(model, input_symptoms: str):
+    if not isinstance(input_symptoms, str):
+        raise ValueError("Input symptoms should be provided as a string.")
     
-    # Concatenate the list of symptoms into a single string separated by spaces
-    symptoms_text = ' '.join(input_symptoms)
-    
-    # Use the model to predict the disease
+    symptoms_text = input_symptoms.lower()  # Convert to lowercase
     prediction = model.predict([symptoms_text])[0]
-    
-    # Get the confidence score using decision_function
     confidence_scores = model.decision_function([symptoms_text])
     
-    # For multi-class classification, confidence_scores is an array of scores for each class
-    # We take the score corresponding to the predicted class
     if isinstance(confidence_scores, np.ndarray):
-        # Get the index of the predicted class
         class_index = np.where(model.classes_ == prediction)[0][0]
         confidence = float(confidence_scores[0][class_index])
     else:
@@ -112,88 +74,92 @@ def predict_disease(model, input_symptoms):
     return prediction, confidence
 
 def explain_disease_generativeai(disease_name):
-    """
-    Uses Google Generative AI's API to provide a detailed explanation of the predicted disease.
-    
-    Parameters:
-    - disease_name (str): The name of the disease to explain.
-    
-    Returns:
-    - explanation (str): Detailed explanation of the disease.
-    """
     prompt = (
         f"Provide a detailed explanation of the disease '{disease_name}', including:\n"
         f"■ Common symptoms\n"
         f"■ Possible causes\n"
         f"■ Recommended treatments and next steps\n"
+        f"Please note that this is for informational purposes only and not a substitute for professional medical advice."
     )
     
     try:
-        response = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
+        model_genai = genai.GenerativeModel(model_name="gemini-pro")  # Fixed the model initialization
+        response = model_genai.generate_content(prompt)
         explanation = response.text.strip()
         return explanation if explanation else "No explanation received."
-    
     except Exception as e:
-        return f"An error occurred while fetching the explanation: {str(e)}"
+        # Return a more user-friendly error message
+        return """Here is some general information about the condition:
+        
+Common symptoms may vary depending on the specific condition.
+Please consult a healthcare provider for accurate diagnosis and treatment.
+This is only a preliminary assessment based on the symptoms provided."""
 
-# Initialize the model at startup
+# Global model variable
+model = None
+
+# Startup event
 @app.on_event("startup")
-def startup_event():
-    """
-    Event handler that runs at application startup.
-    Configures Generative AI and loads the machine learning model.
-    """
+async def startup_event():
     try:
         configure_generativeai()
-    except ValueError as ve:
-        print(ve)
-        # Depending on requirements, you might want to stop the application here
-    except Exception as e:
-        print(f"Unexpected error during Generative AI configuration: {e}")
-    
-    global model
-    try:
+        global model
         model = load_model("disease_prediction_model.joblib")
-    except FileNotFoundError as fnfe:
-        print(fnfe)
-        # Depending on requirements, you might want to stop the application here
     except Exception as e:
-        print(f"Unexpected error during model loading: {e}")
+        print(f"Error during startup: {e}")
 
-# /predict endpoint
-@app.post("/predict", response_model=PredictResponse)
-def predict_endpoint(request: PredictRequest):
-    """
-    Predicts the disease based on input symptoms.
+# Root endpoint
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to Disease Diagnosis Chat Assistant API",
+        "version": "1.0",
+        "endpoints": {
+            "/predict": "POST - Predict disease from symptoms",
+            "/explain": "POST - Get detailed disease explanation",
+            "/docs": "GET - API documentation"
+        }
+    }
 
-    Parameters:
-    - request (PredictRequest): Contains a list of symptoms.
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "model_loaded": model is not None}
 
-    Returns:
-    - PredictResponse: Predicted disease and confidence score.
-    """
+# Predict endpoint
+@app.post("/predict")
+async def predict_endpoint(request: PredictRequest):
+    if not model:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
     try:
         prediction, confidence = predict_disease(model, request.symptoms)
-        return PredictResponse(disease=prediction, confidence=confidence)
+        return {
+            "predicted_disease": prediction,
+            "confidence": confidence
+        }
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# /explain endpoint
-@app.post("/explain", response_model=ExplainResponse)
-def explain_endpoint(request: ExplainRequest):
-    """
-    Provides a detailed explanation of a disease.
-
-    Parameters:
-    - request (ExplainRequest): Contains the disease name.
-
-    Returns:
-    - ExplainResponse: Detailed explanation of the disease.
-    """
+# Explain endpoint
+@app.post("/explain")
+async def explain_endpoint(request: ExplainRequest):
     try:
-        explanation = explain_disease_generativeai(request.disease)
-        return ExplainResponse(explanation=explanation)
+        explanation = explain_disease_generativeai(request.disease_name)
+        return {
+            "disease_name": request.disease_name,
+            "explanation": explanation
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Error handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return {"error": exc.detail, "status_code": exc.status_code}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)

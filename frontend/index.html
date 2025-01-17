@@ -1,31 +1,118 @@
-<!-- frontend/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Disease Prediction Chatbot</title>
-    <link rel="stylesheet" href="styles.css">
-    <!-- Google Fonts for better typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHq6+XWjDZI1mY6BkJYZcPbsCxNV+k37wJ0j0K2dIv5idCs1Ms7nG5MCR+ztH34PC48O6Rlw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        .chat-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .messages-container {
+            margin-top: 20px;
+            padding: 10px;
+            min-height: 200px;
+            border: 1px solid #ccc;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: 20%;
+        }
+        .bot-message {
+            background-color: #f5f5f5;
+            margin-right: 20%;
+        }
+    </style>
 </head>
 <body>
-    <div class="chat-wrapper">
-        <div class="chat-container">
-            <div class="chat-header">
-                <h2>Disease Prediction Chatbot</h2>
-            </div>
-            <div id="chat-box" class="chat-box">
-                <!-- Chat messages will appear here -->
-            </div>
-            <div class="input-container">
-                <input type="text" id="symptoms-input" placeholder="Enter your symptoms here..." autocomplete="off" />
-                <button id="send-button"><i class="fas fa-paper-plane"></i></button>
-            </div>
+    <div class="chat-container">
+        <h1>Disease Prediction Chatbot</h1>
+        <div id="messagesContainer" class="messages-container">
+            <!-- Messages will appear here -->
+        </div>
+        <div style="margin-top: 20px;">
+            <input type="text" id="userInput" placeholder="Enter your symptoms here..." style="width: 300px; padding: 5px;">
+            <button onclick="sendMessage()" style="padding: 5px 15px;">Send</button>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        const messagesContainer = document.getElementById('messagesContainer');
+        const userInput = document.getElementById('userInput');
+
+        // Add initial bot message
+        addBotMessage("Hello! Please describe your symptoms, and I'll help identify possible conditions.");
+
+        function addUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message user-message';
+            div.textContent = text;
+            messagesContainer.appendChild(div);
+        }
+
+        function addBotMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message bot-message';
+            div.textContent = text;
+            messagesContainer.appendChild(div);
+        }
+
+        async function sendMessage() {
+            const symptoms = userInput.value.trim();
+            if (!symptoms) return;
+
+            // Add user message to chat
+            addUserMessage(symptoms);
+            userInput.value = '';
+
+            try {
+                // Send symptoms to backend
+                const response = await fetch('http://127.0.0.1:8000/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ symptoms: symptoms })
+                });
+
+                const data = await response.json();
+                
+                if (data.predicted_disease) {
+                    addBotMessage(`Based on your symptoms, you might have: ${data.predicted_disease}`);
+                    
+                    // Get explanation
+                    const explanationResponse = await fetch('http://127.0.0.1:8000/explain', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ disease_name: data.predicted_disease })
+                    });
+
+                    const explanationData = await explanationResponse.json();
+                    if (explanationData.explanation) {
+                        addBotMessage(explanationData.explanation);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addBotMessage('Sorry, I had trouble processing your symptoms. Please try again.');
+            }
+        }
+
+        // Add enter key support
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
 </body>
 </html>
